@@ -37,8 +37,6 @@
     "pdf-creator-node": "^2.3.5",
     "pdf-lib": "^1.17.1",
     "pdfmake": "^0.2.7",
-    "puppeteer": "^21.1.1",
-    "puppeteer-core": "^21.1.1",
     "qrcode": "^1.5.3",
     "shortid": "^2.2.16",
     "xlsx": "^0.18.5"
