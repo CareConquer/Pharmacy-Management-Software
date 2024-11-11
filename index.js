@@ -76,7 +76,7 @@ app.use(bodyParser.json({limit: "30mb", extended: true}));
 app.use(bodyParser.urlencoded({limit: "30mb", extended: true}));
 // Allow requests from the frontend origin (http://localhost:3000)
 app.use(cors({ origin: 'http://localhost:3000' }));
-app.use("/assets", express.static(path.join(__dirname, 'public/assets')));
+app.use(express.static(path.join(__dirname, './build')));
 
 
 //FILE  STORAGE CONFIG
@@ -258,6 +258,9 @@ app.get('/auth/getMedicineStock', getMedicineStock);
 app.get('/auth/medicineWisePurchaseReport', getMedicineWisePurchaseReport);
 app.get('/auth/medicineWiseSalesReport', getMedicineWiseSalesReport);
 
+app.get('*', function(req, res) {
+    res.sendFile(path.join(__dirname,'./build/index.html'))
+})
 
 // MONGOOSE SETUP
 const PORT = process.env.PORT || 6001;
