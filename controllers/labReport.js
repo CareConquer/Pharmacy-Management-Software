@@ -1,4 +1,3 @@
-import puppeteer from 'puppeteer-core';
 import Bill from "../models/Bill.js";
 import Test from "../models/medicineModel.js";
 import GroupTest from "../models/GroupTest.js";
