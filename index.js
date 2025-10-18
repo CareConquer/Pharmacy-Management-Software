@@ -76,7 +76,8 @@ app.use(bodyParser.json({limit: "30mb", extended: true}));
 app.use(bodyParser.urlencoded({limit: "30mb", extended: true}));
 // Allow requests from the frontend origin (http://localhost:3000)
 app.use(cors({ origin: 'http://localhost:3000' }));
-app.use("/assets", express.static(path.join(__dirname, 'public/assets')));
+// app.use("/assets", express.static(path.join(__dirname, 'public/assets')));
+app.use(express.static(path.join(__dirname, './build')));
 
 
 //FILE  STORAGE CONFIG
@@ -275,6 +276,10 @@ app.get('/auth/medicine-types', getTypes);
 app.post('/auth/add-type', addType);
 app.delete('/auth/delete-type/:id', deleteType);
 
+app.get('*', function(req, res) {
+    res.sendFile(path.join(__dirname,'./build/index.html'))
+})
+
 // MONGOOSE SETUP
 const PORT = process.env.PORT || 6001;
 mongoose.connect(process.env.MONGO_URL,{
@@ -285,6 +290,7 @@ useUnifiedTopology: true,
 app.listen(PORT, () => console.log(`Server Port: ${PORT}`));
 })
 .catch((error)=> console.log(`${error} did not connect`))
+
 
 
 
