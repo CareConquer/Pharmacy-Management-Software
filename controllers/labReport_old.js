@@ -1,4 +1,3 @@
-import puppeteer from 'puppeteer-core';
 import Bill from "../models/Bill.js";
 import Test from "../models/Tests.js";
 import GroupTest from "../models/GroupTest.js";
@@ -1843,3 +1842,4 @@ const NHculturegeneratePDF = async (data) => {
 
     return pdfBuffer;
 }
+
