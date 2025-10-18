@@ -75,7 +75,12 @@ app.use(morgan("common"));
 app.use(bodyParser.json({limit: "30mb", extended: true}));
 app.use(bodyParser.urlencoded({limit: "30mb", extended: true}));
 // Allow requests from the frontend origin (http://localhost:3000)
-app.use(cors({ origin: 'http://localhost:3000' }));
+// app.use(cors({ origin: 'http://localhost:3000' }));
+app.use(cors({
+  origin: 'https://clinic-management-system-phcv.onrender.com', // frontend URL
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true // if using cookies or auth headers
+}));
 // app.use("/assets", express.static(path.join(__dirname, 'public/assets')));
 app.use(express.static(path.join(__dirname, './build')));
 
@@ -290,6 +295,7 @@ useUnifiedTopology: true,
 app.listen(PORT, () => console.log(`Server Port: ${PORT}`));
 })
 .catch((error)=> console.log(`${error} did not connect`))
+
 
 
 
