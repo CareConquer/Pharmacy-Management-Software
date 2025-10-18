@@ -6,7 +6,6 @@ import CreateProfile from "../models/CreateProfile.js";
 import labResultDetail from "../models/labResultDetail.js";
 import labResult from "../models/labResult.js";
 import PatientReg from "../models/PatientReg.js";
-import puppeteer from 'puppeteer';
 import { PDFDocument, rgb } from 'pdf-lib';
 import PdfCreator from 'pdf-creator-node';
 import HTMLToPDF from './htmlPf.js';
@@ -1127,4 +1126,5 @@ export default bill
 
 
   
+
 
