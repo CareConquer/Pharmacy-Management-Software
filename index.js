@@ -44,7 +44,7 @@ import { collectDueAmount } from './controllers/bill.js';
 import testDetails from './controllers/labResultentry.js';
 import { saveResult } from './controllers/labResultentry.js';
 import { getEnteredResult } from './controllers/labResultentry.js';
-import dailyCollectionreport, { downloadDailyCollection, downloadTestList, downloadGroupList, downloadMonthlyCollection, dailyRegistration, downloadDailyRegistration, doctorWiseCollection, downloadDoctorWise } from './controllers/reports.js';
+import dailyCollectionreport, { downloadDailyCollection, downloadTestList, downloadGroupList, downloadMonthlyCollection, dailyRegistration, downloadDailyRegistration, doctorWiseCollection, downloadDoctorWise,supplierDue, medicineExpiry, stockPTRValue, salesGSTStatement, purchaseGSTStatement } from './controllers/reports.js';
 import { monthlyCollectionreport } from './controllers/reports.js';
 import { monthlydueCollectionreport } from './controllers/reports.js';
 import { updatebillTest } from './controllers/bill.js';
@@ -60,7 +60,7 @@ import { Login } from './controllers/login.js';
 import { billPrint } from './controllers/bill.js';
 import { createBill } from './controllers/auth.js';
 import { sales, purchases, getDueDistibutors, custDue, expiredMedicines, expiringMedicines } from './controllers/dashboard.js';
-import { createSupplier, getSuppliers, getMedicines,returnMedicine,returnPurchase, purchaseOrder, clearDue, findSupplier, updateSupplier,findMedicine,updateMedicine, clearBillDue,getPurchaseOrders, getPurchaseOrderById, getAvailable, saveBill , pharmaBills, getBillDetails, pharmaBillPrint} from './controllers/supplier.js';
+import { createSupplier, getSuppliers, getMedicines,returnMedicine,returnPurchase, purchaseOrder, clearDue, findSupplier, updateSupplier,findMedicine,updateMedicine, clearBillDue,getPurchaseOrders, getPurchaseOrderById, getAvailable, saveBill , pharmaBills, getBillDetails, pharmaBillPrint, getBatches, getCompanies, addCompany, deleteCompany, getTypes, addType, deleteType} from './controllers/supplier.js';
 import { getPurchaseReport, getMedicineWisePurchaseReport, getMedicineStock,getMedicineWiseSalesReport } from './controllers/purchaseReport.js';
 
 // CONFIGURATIONS
@@ -76,7 +76,7 @@ app.use(bodyParser.json({limit: "30mb", extended: true}));
 app.use(bodyParser.urlencoded({limit: "30mb", extended: true}));
 // Allow requests from the frontend origin (http://localhost:3000)
 app.use(cors({ origin: 'http://localhost:3000' }));
-app.use(express.static(path.join(__dirname, './build')));
+app.use("/assets", express.static(path.join(__dirname, 'public/assets')));
 
 
 //FILE  STORAGE CONFIG
@@ -172,9 +172,16 @@ app.post("/auth/send-culture-email/:id", sendCultureEmail);
 app.get("/auth/dailyCollection/:date", dailyCollectionreport);
 app.get("/auth/monthlyCollection/:month", monthlyCollectionreport);
 app.get("/auth/monthlydueCollection/:month", monthlydueCollectionreport);
+app.get("/auth/supplierDue", supplierDue);
+app.get("/auth/medicineExpiry", medicineExpiry);
+app.get("/auth/stockPTRValue", stockPTRValue);
 app.get("/auth/dailyRegistration/:startDate/:endDate", dailyRegistration);
 app.get("/auth/doctorWiseCollection/:doctorId/:startDate/:endDate", doctorWiseCollection);
 app.post("/auth/getReferrals", getReferrals);
+
+//GST
+app.get("/auth/salesGSTStatement", salesGSTStatement);
+app.get("/auth/purchaseGSTStatement", purchaseGSTStatement);
 
 
 
@@ -222,6 +229,7 @@ app.get('/auth/getPurchaseOrder/:id', getPurchaseOrderById);
 
 //billing
 app.post("/auth/billing", saveBill);
+app.get("/auth/batches/:medicine", getBatches);
 app.get('/auth/pharmaBills', pharmaBills);
 app.get('/auth/pharmaBills/:billId', getBillDetails);
 
@@ -258,9 +266,14 @@ app.get('/auth/getMedicineStock', getMedicineStock);
 app.get('/auth/medicineWisePurchaseReport', getMedicineWisePurchaseReport);
 app.get('/auth/medicineWiseSalesReport', getMedicineWiseSalesReport);
 
-app.get('*', function(req, res) {
-    res.sendFile(path.join(__dirname,'./build/index.html'))
-})
+//Medicine Master
+app.get('/auth/medicine-companies', getCompanies);
+app.post('/auth/add-company', addCompany);
+app.delete('/auth/delete-company/:id', deleteCompany);
+
+app.get('/auth/medicine-types', getTypes);
+app.post('/auth/add-type', addType);
+app.delete('/auth/delete-type/:id', deleteType);
 
 // MONGOOSE SETUP
 const PORT = process.env.PORT || 6001;

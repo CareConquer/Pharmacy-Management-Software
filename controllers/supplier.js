@@ -11,6 +11,9 @@ import PurchaseReturn from "../models/PurchaseReturn.js";
 import PurchaseReturnDetail from "../models/PurchaseReturnDetail.js";
 import DuePurchaseCleared from "../models/DuePurchaseCleared.js";
 import DuePharmaBillCleared from "../models/DuePharmaBillCleared.js";
+import OpeningClosingStock from "../models/OpeningClosingStock.js";
+import MedicineCompany from "../models/medicineCompanyModel.js";
+import MedicineType from "../models/medicineTypeModel.js";
 import HTMLToPDF from './htmlPf.js';
 
 
@@ -264,13 +267,288 @@ const getFinancialYear = (date) => {
 //   }
 // };
 
+// export const purchaseOrder = async (req, res) => {
+//   try {
+//     const {
+//       supplier,
+//       billNo,
+//       billDate,
+//       dueDate,
+//       items,
+//       amount,
+//       discount,
+//       afterDiscount,
+//       gstAmount,
+//       totalAmount,
+//       payingAmount,
+//       dueAmount,
+//       refundAmount,
+//       paymentType,
+//     } = req.body;
+
+//     // Get the financial year based on the bill date
+//     const purchaseYear = getFinancialYear(new Date(billDate)).label;
+
+//     // Create PurchaseOrder
+//     const purchaseOrder = new PurchaseOrder({
+//       supplier,
+//       billNo,
+//       billDate,
+//       dueDate,
+//       amount,
+//       discount,
+//       afterDiscount,
+//       gstAmount,
+//       totalAmount,
+//       payingAmount,
+//       dueAmount,
+//       refundAmount,
+//       purchaseYear,
+//       paymentType,
+//     });
+
+//     // Create PurchaseOrderDetail for each item
+//     const purchaseOrderDetails = items.map((item) => ({
+//       ...item,
+//       purchaseOrder: purchaseOrder._id,
+//       purchaseYear,
+//     }));
+
+//     // Save PurchaseOrder and PurchaseOrderDetails in a single transaction
+//     await Promise.all([
+//       purchaseOrder.save(),
+//       PurchaseOrderDetail.insertMany(purchaseOrderDetails),
+//     ]);
+
+//     // Save items to MedicineAvailable
+//     // const medicineAvailableData = items.map((item) => ({
+//     //   ...item,
+//     //   qty: item.totalQty,
+//     //   purchaseOrder: purchaseOrder._id,
+//     // }));
+//     // await MedicineAvailable.insertMany(medicineAvailableData);
+
+//     const medicineAvailableData = items.map((item) => ({
+//       itemName: item.medicine,
+//       batch: item.batchNo,
+//       expiry: item.expiry,
+//       mrp: item.single,          
+//       qty: item.totalQty,
+//       gst: item.gst,
+//       medicineType: item.medicineType,
+//       hsn: item.hsn,
+//       company: item.company,
+//       purchaseOrder: purchaseOrder._id,
+//     }));
+
+//     await MedicineAvailable.insertMany(medicineAvailableData);
+
+
+//     res.status(201).send({ purchaseOrder, purchaseOrderDetails });
+//   } catch (error) {
+//     if (error.name === 'ValidationError') {
+//       return res.status(400).send({ message: error.message });
+//     }
+//     res.status(500).send({ message: 'Internal server error' });
+//   }
+// };
+
+// export const purchaseOrder = async (req, res) => {
+//   const session = await mongoose.startSession();
+//   session.startTransaction();
+//   try {
+//     const {
+//       supplier,
+//       billNo,
+//       billDate,
+//       items,
+//       amount,
+//       discount,
+//       afterDiscount,
+//       gstAmount,
+//       totalAmount,
+//       payingAmount,
+//       dueAmount,
+//       refundAmount,
+//       paymentType,
+//     } = req.body;
+
+//     // Get financial year
+//     const purchaseYear = getFinancialYear(new Date(billDate)).label;
+
+//     // Create PurchaseOrder
+//     const purchaseOrder = new PurchaseOrder({
+//       supplier,
+//       billNo,
+//       billDate,
+//       amount,
+//       discount,
+//       afterDiscount,
+//       gstAmount,
+//       totalAmount,
+//       payingAmount,
+//       dueAmount,
+//       refundAmount,
+//       purchaseYear,
+//       paymentType,
+//     });
+
+//     await purchaseOrder.save({ session });
+
+//     // Prepare PurchaseOrderDetail for each item
+//     const purchaseOrderDetails = items.map(item => ({
+//       purchaseOrder: purchaseOrder._id,
+//       itemName: item.medicine,
+//       batch: item.batchNo,
+//       expiry: item.expiry,
+//       mrp: item.single,          // selling price per strip/tablet
+//       qty: item.qty,             // packs
+//       packs: item.qty,
+//       totalQty: item.totalQty,
+//       free: item.free,
+//       gst: item.gst,
+//       disc: item.singleDiscount,
+//       splDisc: item.splDiscount || 0,
+//       amount: item.purchase,     // purchase amount per item
+//       medicineType: item.medicineType,
+//       hsn: item.hsn,
+//       company: item.company,
+//       purchaseYear,
+//     }));
+
+//     await PurchaseOrderDetail.insertMany(purchaseOrderDetails, { session });
+
+//     // Prepare MedicineAvailable for stock
+//     const medicineAvailableData = items.map(item => ({
+//       itemName: item.medicine,
+//       batch: item.batchNo,
+//       expiry: item.expiry,
+//       mrp: item.single,          
+//       qty: item.totalQty,         // total including free
+//       free: item.free,
+//       gst: item.gst,
+//       medicineType: item.medicineType,
+//       hsn: item.hsn,
+//       company: item.company,
+//       purchaseOrder: purchaseOrder._id,
+//     }));
+
+//     await MedicineAvailable.insertMany(medicineAvailableData, { session });
+
+//     await session.commitTransaction();
+//     session.endSession();
+
+//     res.status(201).send({ purchaseOrder, purchaseOrderDetails });
+
+//   } catch (error) {
+//     await session.abortTransaction();
+//     session.endSession();
+//     console.error(error); // log exact error
+//     if (error.name === 'ValidationError') {
+//       return res.status(400).send({ message: error.message });
+//     }
+//     res.status(500).send({ message: 'Internal server error' });
+//   }
+// };
+
+// export const purchaseOrder = async (req, res) => {
+//   try {
+//     const {
+//       supplier,
+//       billNo,
+//       billDate,
+//       items,
+//       amount,
+//       discount,
+//       afterDiscount,
+//       gstAmount,
+//       totalAmount,
+//       payingAmount,
+//       dueAmount,
+//       refundAmount,
+//       paymentType,
+//     } = req.body;
+
+//     // Get financial year
+//     const purchaseYear = getFinancialYear(new Date(billDate)).label;
+
+//     // Create PurchaseOrder
+//     const purchaseOrder = new PurchaseOrder({
+//       supplier,
+//       billNo,
+//       billDate,
+//       amount,
+//       discount,
+//       afterDiscount,
+//       gstAmount,
+//       totalAmount,
+//       payingAmount,
+//       dueAmount,
+//       refundAmount,
+//       purchaseYear,
+//       paymentType,
+//     });
+
+//     await purchaseOrder.save();
+
+//     // Prepare PurchaseOrderDetail for each item
+//     const purchaseOrderDetails = items.map(item => ({
+//       purchaseOrder: purchaseOrder._id,
+//       itemName: item.medicine,
+//       batch: item.batchNo,
+//       expiry: item.expiry,
+//       mrp: item.single,          // selling price per strip/tablet
+//       qty: item.qty,             // packs
+//       packs: item.qty,
+//       totalQty: item.totalQty,
+//       free: item.free,
+//       gst: item.gst,
+//       disc: item.singleDiscount,
+//       splDisc: item.splDiscount || 0,
+//       amount: item.purchase,     // purchase amount per item
+//       medicineType: item.medicineType,
+//       hsn: item.hsn,
+//       company: item.company,
+//       purchaseYear,
+//     }));
+
+//     await PurchaseOrderDetail.insertMany(purchaseOrderDetails);
+
+//     // Prepare MedicineAvailable for stock
+//     const medicineAvailableData = items.map(item => ({
+//       itemName: item.medicine,
+//       batch: item.batchNo,
+//       expiry: item.expiry,
+//       mrp: item.single,          
+//       qty: item.totalQty,         // total including free
+//       free: item.free,
+//       gst: item.gst,
+//       medicineType: item.medicineType,
+//       hsn: item.hsn,
+//       company: item.company,
+//       purchaseOrder: purchaseOrder._id,
+//     }));
+
+//     await MedicineAvailable.insertMany(medicineAvailableData);
+
+//     res.status(201).send({ purchaseOrder, purchaseOrderDetails });
+
+//   } catch (error) {
+//     console.error(error); // log exact error
+//     if (error.name === 'ValidationError') {
+//       return res.status(400).send({ message: error.message });
+//     }
+//     res.status(500).send({ message: 'Internal server error' });
+//   }
+// };
+
+
 export const purchaseOrder = async (req, res) => {
   try {
     const {
       supplier,
       billNo,
       billDate,
-      dueDate,
       items,
       amount,
       discount,
@@ -283,15 +561,14 @@ export const purchaseOrder = async (req, res) => {
       paymentType,
     } = req.body;
 
-    // Get the financial year based on the bill date
+    // Get financial year
     const purchaseYear = getFinancialYear(new Date(billDate)).label;
 
-    // Create PurchaseOrder
+    // 1️⃣ Create PurchaseOrder
     const purchaseOrder = new PurchaseOrder({
       supplier,
       billNo,
       billDate,
-      dueDate,
       amount,
       discount,
       afterDiscount,
@@ -304,35 +581,75 @@ export const purchaseOrder = async (req, res) => {
       paymentType,
     });
 
-    // Create PurchaseOrderDetail for each item
-    const purchaseOrderDetails = items.map((item) => ({
-      ...item,
+    await purchaseOrder.save();
+
+    // 2️⃣ Prepare and save PurchaseOrderDetails
+    const purchaseOrderDetails = items.map(item => ({
       purchaseOrder: purchaseOrder._id,
+      itemName: item.medicine,
+      batch: item.batchNo,
+      expiry: item.expiry,
+      mrp: item.single,          // selling price per strip/tablet
+      qty: item.qty,             // packs
+      packs: item.qty,
+      totalQty: item.totalQty,
+      free: item.free,
+      gst: item.gst,
+      disc: item.singleDiscount,
+      splDisc: item.splDiscount || 0,
+      amount: item.purchase,     // purchase amount per item
+      medicineType: item.medicineType,
+      hsn: item.hsn,
+      company: item.company,
       purchaseYear,
     }));
 
-    // Save PurchaseOrder and PurchaseOrderDetails in a single transaction
-    await Promise.all([
-      purchaseOrder.save(),
-      PurchaseOrderDetail.insertMany(purchaseOrderDetails),
-    ]);
+    await PurchaseOrderDetail.insertMany(purchaseOrderDetails);
 
-    // Save items to MedicineAvailable
-    const medicineAvailableData = items.map((item) => ({
-      ...item,
-      qty: item.totalQty,
+    // 3️⃣ Prepare and save MedicineAvailable for stock
+    const medicineAvailableData = items.map(item => ({
+      itemName: item.medicine,
+      batch: item.batchNo,
+      expiry: item.expiry,
+      mrp: item.single,
+      qty: item.totalQty,       // total including free
+      free: item.free,
+      gst: item.gst,
+      medicineType: item.medicineType,
+      hsn: item.hsn,
+      company: item.company,
       purchaseOrder: purchaseOrder._id,
     }));
+
     await MedicineAvailable.insertMany(medicineAvailableData);
 
-    res.status(201).send({ purchaseOrder, purchaseOrderDetails });
+    // 4️⃣ Prepare and save Stock
+    const stockData = items.map(item => ({
+      medicineName: item.medicine,
+      batchNo: item.batchNo,
+      openingStock: 0,          // For new batch, starting stock is 0
+      purchase: item.totalQty,  // purchased quantity
+      sales: 0,
+      currentStock: item.totalQty, // opening + purchase - sales
+      stockDate: new Date(billDate),
+      purchaseOrder: purchaseOrder._id,
+    }));
+
+    await OpeningClosingStock.insertMany(stockData);
+
+    res.status(201).send({ purchaseOrder, purchaseOrderDetails, stockData });
+
   } catch (error) {
+    console.error("Purchase Order Error:", error);
     if (error.name === 'ValidationError') {
       return res.status(400).send({ message: error.message });
     }
     res.status(500).send({ message: 'Internal server error' });
   }
 };
+
+
+
 
 
 export const getPurchaseOrders = async (req, res) => {
@@ -382,30 +699,116 @@ export const getPurchaseOrders = async (req, res) => {
 };
 
 
+// export const getAvailable = async (req, res) => {
+//   try {
+//     const currentDate = new Date();
+//     const medicines = await MedicineAvailable.find({
+//       // available: true,
+//       qty: { $gt: 0 }, // Filter out medicines with quantity less than or equal to zero
+//     }).lean(); // Converting to plain JavaScript objects for manipulation
+
+//     // Filter out expired medicines
+//     const availableMedicines = medicines.filter(medicine => {
+//       if (!medicine.expiry) return false; // Handle cases where expiry date might be missing
+
+//       // Parse the expiry date string in "MM/YY" format to compare
+//       const [expiryMonth, expiryYear] = medicine.expiry.split('/');
+//       const expiryDate = new Date(parseInt(`20${expiryYear}`), parseInt(expiryMonth) - 1, 1); // Assume expiry day as 1 for comparison
+
+//       return expiryDate >= currentDate;
+//     });
+
+//     res.status(200).json(availableMedicines);
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
+// export const getAvailable = async (req, res) => {
+//   try {
+//     const currentDate = new Date();
+
+//     // Fetch only medicines with qty > 0
+//     const medicines = await MedicineAvailable.find({
+//       qty: { $gt: 0 },
+//     }).lean();
+
+//     // Filter out expired medicines
+//     const availableMedicines = medicines.filter(medicine => {
+//       if (!medicine.expiry) return false;
+
+//       const [expiryMonth, expiryYear] = medicine.expiry.split('/');
+//       const expiryDate = new Date(
+//         parseInt(`20${expiryYear}`),
+//         parseInt(expiryMonth) - 1,
+//         1
+//       );
+
+//       return expiryDate >= currentDate;
+//     });
+
+//     // ✅ Get distinct medicines by itemName
+//     const distinctMedicines = [];
+//     const seenNames = new Set();
+
+//     for (const med of availableMedicines) {
+//       if (!seenNames.has(med.itemName)) {
+//         distinctMedicines.push(med);
+//         seenNames.add(med.itemName);
+//       }
+//     }
+
+//     res.status(200).json(distinctMedicines);
+//   } catch (error) {
+//     console.error("Error fetching available medicines:", error);
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
 export const getAvailable = async (req, res) => {
   try {
     const currentDate = new Date();
-    const medicines = await MedicineAvailable.find({
-      // available: true,
-      qty: { $gt: 0 }, // Filter out medicines with quantity less than or equal to zero
-    }).lean(); // Converting to plain JavaScript objects for manipulation
+
+    // Get all medicines with qty > 0
+    const medicines = await MedicineAvailable.find({ qty: { $gt: 0 } }).lean();
 
     // Filter out expired medicines
-    const availableMedicines = medicines.filter(medicine => {
-      if (!medicine.expiry) return false; // Handle cases where expiry date might be missing
-
-      // Parse the expiry date string in "MM/YY" format to compare
-      const [expiryMonth, expiryYear] = medicine.expiry.split('/');
-      const expiryDate = new Date(parseInt(`20${expiryYear}`), parseInt(expiryMonth) - 1, 1); // Assume expiry day as 1 for comparison
-
+    const validMedicines = medicines.filter(med => {
+      if (!med.expiry) return false;
+      const [month, year] = med.expiry.split('/');
+      const expiryDate = new Date(`20${year}`, month - 1, 1);
       return expiryDate >= currentDate;
     });
 
-    res.status(200).json(availableMedicines);
+    // Group by itemName
+    const grouped = validMedicines.reduce((acc, med) => {
+      if (!acc[med.itemName]) acc[med.itemName] = [];
+      acc[med.itemName].push({
+        batch: med.batch,
+        expiry: med.expiry,
+        mrp: med.mrp,
+        gst: med.gst,
+        qty: med.qty,
+        discount: med.discount || 0,
+        itemId: med._id
+      });
+      return acc;
+    }, {});
+
+    // Convert to array
+    const result = Object.keys(grouped).map(itemName => ({
+      itemName,
+      batches: grouped[itemName]
+    }));
+
+    res.status(200).json(result);
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
+
 
 // export const saveBill = async (req, res) => {
 //   try {
@@ -424,6 +827,9 @@ export const getAvailable = async (req, res) => {
 //       items, // Array of items from request body
 //     } = req.body;
 
+//     // Get the financial year based on the bill date
+//     const billYear = getFinancialYear(new Date(billDate)).label;
+
 //     // Fetch the latest bill number and increment it by 1
 //     const latestBill = await pharmaBill.findOne().sort({ billNo: -1 }).exec();
 //     const newBillNo = latestBill ? latestBill.billNo + 1 : 1;
@@ -441,6 +847,7 @@ export const getAvailable = async (req, res) => {
 //       discountAmount,
 //       dueAmount,
 //       refundAmount,
+//       billYear,
 //       paymentType,
 //     });
 
@@ -460,6 +867,7 @@ export const getAvailable = async (req, res) => {
 //       mrp: item.mrp,
 //       discount: item.discount,
 //       totalAmount: item.totalAmount,
+//       billYear
 //     }));
 
 //     // Save all bill details to the database
@@ -476,13 +884,12 @@ export const getAvailable = async (req, res) => {
 //       }
 //     }
 
-//     res.status(201).json({ bill, billDetails });
+//     res.status(201).json({ bill, billDetails, billId: bill._id });
 //   } catch (error) {
 //     console.error('Error saving bill:', error);
 //     res.status(500).json({ message: 'Failed to save bill' });
 //   }
 // };
-
 
 export const saveBill = async (req, res) => {
   try {
@@ -508,7 +915,7 @@ export const saveBill = async (req, res) => {
     const latestBill = await pharmaBill.findOne().sort({ billNo: -1 }).exec();
     const newBillNo = latestBill ? latestBill.billNo + 1 : 1;
 
-    // Create a new bill instance with the incremented bill number
+    // Create and save a new bill
     const bill = new pharmaBill({
       billNo: newBillNo,
       billDate,
@@ -525,12 +932,11 @@ export const saveBill = async (req, res) => {
       paymentType,
     });
 
-    // Save the bill to the database
     await bill.save();
 
-    // Create bill details for each item with the same bill number
+    // Create and save all bill details
     const billDetails = items.map(item => ({
-      bill: bill._id, // Reference to the bill
+      bill: bill._id,
       medicineId: item.itemId,
       billNo: newBillNo,
       medicineName: item.medicineName,
@@ -544,17 +950,38 @@ export const saveBill = async (req, res) => {
       billYear
     }));
 
-    // Save all bill details to the database
     await pharmaBillDetail.insertMany(billDetails);
 
-    // Update the MedicineAvailable collection to reduce the quantity
+    // Update MedicineAvailable and OpeningClosingStock quantities
     for (const item of items) {
-      const medicine = await MedicineAvailable.findOne({ itemName: item.medicineName, batch: item.batchNo });
+      // 🔹 Reduce from MedicineAvailable
+      const medicine = await MedicineAvailable.findOne({
+        itemName: item.medicineName,
+        batch: item.batchNo,
+      });
+
       if (medicine) {
         medicine.qty -= item.qty;
         await medicine.save();
       } else {
         throw new Error(`Medicine ${item.medicineName} with batch ${item.batchNo} not found`);
+      }
+
+      // 🔹 Reduce from OpeningClosingStock as well
+      const stock = await OpeningClosingStock.findOne({
+        medicineName: item.medicineName,
+        batchNo: item.batchNo,
+      });
+
+      if (stock) {
+        stock.currentStock -= item.qty;
+
+        // Optional: prevent negative stock
+        if (stock.currentStock < 0) stock.currentStock = 0;
+
+        await stock.save();
+      } else {
+        console.warn(`OpeningClosingStock not found for ${item.medicineName}, batch ${item.batchNo}`);
       }
     }
 
@@ -565,6 +992,81 @@ export const saveBill = async (req, res) => {
   }
 };
 
+// Get all companies
+export const getCompanies = async (req, res) => {
+  try {
+    const companies = await MedicineCompany.find().sort({ companyName: 1 });
+    res.json(companies);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching companies', error });
+  }
+};
+
+// Add new company
+export const addCompany = async (req, res) => {
+  try {
+    const { companyName } = req.body;
+    if (!companyName) return res.status(400).json({ message: 'Company name is required' });
+
+    const exists = await MedicineCompany.findOne({ companyName });
+    if (exists) return res.status(400).json({ message: 'Company already exists' });
+
+    const company = new MedicineCompany({ companyName });
+    await company.save();
+    res.status(201).json(company);
+  } catch (error) {
+    res.status(500).json({ message: 'Error adding company', error });
+  }
+};
+
+// Delete company
+export const deleteCompany = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await MedicineCompany.findByIdAndDelete(id);
+    res.json({ message: 'Company deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting company', error });
+  }
+};
+
+// Get all types
+export const getTypes = async (req, res) => {
+  try {
+    const types = await MedicineType.find().sort({ typeName: 1 });
+    res.json(types);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching types', error });
+  }
+};
+
+// Add new type
+export const addType = async (req, res) => {
+  try {
+    const { typeName } = req.body;
+    if (!typeName) return res.status(400).json({ message: 'Type name is required' });
+
+    const exists = await MedicineType.findOne({ typeName });
+    if (exists) return res.status(400).json({ message: 'Type already exists' });
+
+    const type = new MedicineType({ typeName });
+    await type.save();
+    res.status(201).json(type);
+  } catch (error) {
+    res.status(500).json({ message: 'Error adding type', error });
+  }
+};
+
+// Delete type
+export const deleteType = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await MedicineType.findByIdAndDelete(id);
+    res.json({ message: 'Type deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting type', error });
+  }
+};
 
 // export const pharmaBills = async (req, res) => {
 //   try {
@@ -623,6 +1125,16 @@ export const pharmaBills = async (req, res) => {
   }
 };
 
+export const getBatches = async (req, res) => {
+  try {
+    const { medicine } = req.params;
+    const batches = await MedicineAvailable.find({ itemName: medicine });
+    res.json(batches);
+  } catch (error) {
+    console.error('Error fetching bill details:', error);
+    res.status(500).json({ message: 'Failed to fetch batch details' });
+  }
+};
 
 
 export const getBillDetails = async (req, res) => {
@@ -774,67 +1286,148 @@ export const pharmaBillPrint = async (req, res) => {
 // };
 
 
+// export const returnMedicine = async (req, res) => {
+//   const { billId } = req.params;
+//   const { items } = req.body; // coming from frontend
+
+//   try {
+//     if (!items || items.length === 0) {
+//       return res.status(400).json({ error: 'No medicines selected for return.' });
+//     }
+
+//     const billReturnYear = getFinancialYear(new Date()).label;
+
+//     // Calculate total refund
+//     const totalRefundAmount = items.reduce(
+//       (sum, item) => sum + (parseFloat(item.returnQty || 0) * parseFloat(item.mrp || 0)),
+//       0
+//     );
+
+//     // Create SalesReturn entry
+//     const salesReturn = new SalesReturn({
+//       bill: billId,
+//       totalRefundAmount,
+//       billReturnYear,
+//     });
+//     await salesReturn.save();
+
+//     // Loop through items to update stock & create SalesReturnDetail
+//     const promises = items.map(async (item) => {
+//       const medicine = await MedicineAvailable.findOne({
+//         itemName: item.medicineName,
+//         batch: item.batchNo,
+//       });
+
+//       if (medicine) {
+//         medicine.qty += parseInt(item.returnQty);
+//         await medicine.save();
+//       }
+
+//       const detail = new SalesReturnDetail({
+//         salesReturn: salesReturn._id,
+//         medicineName: item.medicineName,
+//         batchNo: item.batchNo,
+//         qty: item.returnQty,
+//         mrp: item.mrp,
+//         gst: item.gst,
+//         totalAmount: item.returnQty * item.mrp,
+//         billReturnYear,
+//       });
+//       await detail.save();
+//     });
+
+//     await Promise.all(promises);
+
+//     res.status(200).json({ message: 'Medicines returned successfully and quantities updated.' });
+//   } catch (error) {
+//     console.error('Error returning medicine:', error);
+//     res.status(500).json({ error: 'Internal server error' });
+//   }
+// };
+
+
 export const returnMedicine = async (req, res) => {
   const { billId } = req.params;
-  const { selectedItems } = req.body; // selectedItems should be an array of bill detail IDs to be returned
+  const { items } = req.body; // coming from frontend
 
   try {
-    const bill = await pharmaBill.findById(billId);
-    if (!bill) {
-      return res.status(404).json({ error: 'Bill not found' });
+    if (!items || items.length === 0) {
+      return res.status(400).json({ error: 'No medicines selected for return.' });
     }
 
     const billReturnYear = getFinancialYear(new Date()).label;
 
-    const selectedItemsData = await pharmaBillDetail.find({
-      _id: { $in: selectedItems },
-      bill: billId
-    });
+    // Calculate total refund
+    const totalRefundAmount = items.reduce(
+      (sum, item) => sum + (parseFloat(item.returnQty || 0) * parseFloat(item.mrp || 0)),
+      0
+    );
 
-    // Create a new SalesReturn record
-    const totalRefundAmount = selectedItemsData.reduce((sum, item) => sum + item.totalAmount, 0);
+    // Create SalesReturn record
     const salesReturn = new SalesReturn({
       bill: billId,
       totalRefundAmount,
-      billReturnYear
+      billReturnYear,
     });
     await salesReturn.save();
 
-    // Update quantities, remove items, and create SalesReturnDetail records
-    const promises = selectedItemsData.map(async (item) => {
+    // Update medicine stock, OpeningClosingStock, and create SalesReturnDetail
+    const promises = items.map(async (item) => {
       const medicine = await MedicineAvailable.findOne({
-        itemId: item.medicineId,
-        batch: item.batchNo
+        itemName: item.medicineName,
+        batch: item.batchNo,
       });
 
       if (medicine) {
-        medicine.qty += item.qty;
+        // Update available quantity
+        medicine.qty += parseInt(item.returnQty);
         await medicine.save();
+
+        // Update OpeningClosingStock
+        const existingStock = await OpeningClosingStock.findOne({
+          medicineName: item.medicineName,
+          batchNo: item.batchNo,
+        });
+
+        if (existingStock) {
+          existingStock.currentStock += parseInt(item.returnQty);
+          // existingStock.sales -= parseInt(item.returnQty);
+          await existingStock.save();
+        } else {
+          const newStock = new OpeningClosingStock({
+            medicineName: item.medicineName,
+            batchNo: item.batchNo,
+            openingStock: 0,
+            currentStock: parseInt(item.returnQty),
+            stockDate: new Date(),
+          });
+          await newStock.save();
+        }
       }
 
-      // Create a SalesReturnDetail record
-      const salesReturnDetail = new SalesReturnDetail({
+      // Create SalesReturnDetail entry
+      const detail = new SalesReturnDetail({
         salesReturn: salesReturn._id,
-        medicineId: item.medicineId,
         medicineName: item.medicineName,
         batchNo: item.batchNo,
-        qty: item.qty,
-        gst: item.gst,
+        qty: item.returnQty,
         mrp: item.mrp,
-        totalAmount: item.totalAmount,
-        billReturnYear
+        gst: item.gst,
+        totalAmount: item.returnQty * item.mrp,
+        billReturnYear,
       });
-      await salesReturnDetail.save();
+      await detail.save();
     });
 
     await Promise.all(promises);
 
-    res.status(200).json({ message: 'Medicines returned successfully and quantities updated.' });
+    res.status(200).json({ message: 'Medicines returned successfully. Stocks updated in all tables.' });
   } catch (error) {
     console.error('Error returning medicine:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
 
 // export const returnPurchase = async (req, res) => {
 //   const { id } = req.params;

@@ -4,7 +4,7 @@ const PurchaseOrderSchema = new mongoose.Schema({
   supplier: { type: mongoose.Schema.Types.ObjectId, ref: 'Supplier', required: true },
   billNo: { type: String, required: true },
   billDate: { type: Date, required: true },
-  dueDate: { type: Date, required: true },
+  // dueDate: { type: Date, required: true },
   amount: { type: Number, required: true },
   discount: { type: Number, required: true },
   afterDiscount: { type: Number, required: true },

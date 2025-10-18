@@ -3,7 +3,7 @@ import PurchaseOrderDetail from "../models/purchaseOrderDetail.js";
 import MedicineAvailable from "../models/MedicineAvailable.js";
 import pharmaBill from "../models/pharmaBill.js";
 import pharmaBillDetail from "../models/pharmaBillDetail.js";
-import { startOfDay, endOfDay } from 'date-fns';
+import { startOfDay, endOfDay,addMonths, addDays  } from 'date-fns';
 
 export const sales = async (req, res) => {
     const date = req.query.date ? new Date(req.query.date) : new Date();
@@ -24,30 +24,61 @@ export const purchases = async (req, res) => {
     const endDate = endOfDay(date);
 
     try {
-        const purchases = await pharmaBill.find({ createdAt: { $gte: startDate, $lte: endDate } });
+        const purchases = await PurchaseOrder.find({ createdAt: { $gte: startDate, $lte: endDate } });
         res.json(purchases);
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
 };
 
-export const expiringMedicines = async (req, res) => {
-    const date = req.query.date ? new Date(req.query.date) : new Date();
-    const startDate = startOfDay(date);
-    const endDate = endOfDay(addDays(date, 2)); // Add 2 days to the current date
+// export const expiringMedicines = async (req, res) => {
+//     const date = req.query.date ? new Date(req.query.date) : new Date();
+//     const startDate = startOfDay(date);
+//     const endDate = endOfDay(addDays(date, 2)); // Add 2 days to the current date
 
+//     try {
+//         const medicines = await MedicineAvailable.find({});
+//         const expiringMedicines = medicines.filter(medicine => {
+//             const [month, year] = medicine.expiry.split('/').map(Number);
+//             const expiryDate = new Date(`20${year}`, month - 1); // Assuming the year is 20YY
+//             return expiryDate >= startDate && expiryDate <= endDate;
+//         });
+//         console.log(expiringMedicines)
+//         res.json(expiringMedicines);
+//     } catch (err) {
+//         res.status(500).json({ message: err.message });
+//     }
+// };
+
+export const expiringMedicines = async (req, res) => {
     try {
+        const date = req.query.date ? new Date(req.query.date) : new Date();
+        const startDate = startOfDay(date);
+        const endDate = endOfDay(addMonths(date, 2)); // 2 months ahead
+
         const medicines = await MedicineAvailable.find({});
-        const expiringMedicines = medicines.filter(medicine => {
-            const [month, year] = medicine.expiry.split('/').map(Number);
-            const expiryDate = new Date(`20${year}`, month - 1); // Assuming the year is 20YY
+        console.log(medicines);
+
+        const expiringMedicines = medicines.filter(med => {
+            if (!med.expiry) return false;
+
+            const [month, year] = med.expiry.split('/').map(Number);
+            if (!month || !year) return false;
+
+            // Last day of expiry month
+            const expiryDate = new Date(2000 + year, month, 0);
+
             return expiryDate >= startDate && expiryDate <= endDate;
         });
+
+        console.log(expiringMedicines);
         res.json(expiringMedicines);
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
 };
+
+
 
 export const expiredMedicines = async (req, res) => {
     const date = req.query.date ? new Date(req.query.date) : new Date();
@@ -87,8 +118,8 @@ export const custDue = async (req, res) => {
 export const getDueDistibutors = async (req, res) => {
 
     try {
-        const getDueDistibutors = await PurchaseOrder.find({ 
-            dueAmount: { $gt: 0 } 
+        const getDueDistibutors = await PurchaseOrder.find({
+            dueAmount: { $gt: 0 }
         }).populate('supplier', 'companyName');
 
         res.json(getDueDistibutors);

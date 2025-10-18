@@ -142,6 +142,215 @@ export const monthlydueCollectionreport = async (req, res) => {
 
 }
 
+
+export const supplierDue = async (req, res) => {
+    try {
+        const { fromDate, toDate, supplier } = req.query;
+
+        // Parse the fromDate and toDate as Date objects
+        const start = new Date(fromDate);
+        const end = new Date(new Date(toDate).setHours(23, 59, 59, 999));
+
+        // Check if dates are valid
+        if (isNaN(start) || isNaN(end)) {
+            return res.status(400).json({ error: 'Invalid fromDate or toDate' });
+        }
+
+        // Build the query with an optional supplier filter
+        const query = {
+            createdAt: { $gte: start, $lte: end },
+            dueAmount: { $gt: 0 },
+        };
+        if (supplier) {
+            query.supplier = supplier;
+        }
+
+        const dueData = await PurchaseOrder.find(query)
+            .populate('supplier', 'companyName');
+
+        res.json(dueData);
+    } catch (error) {
+        console.error('Error fetching supplier due data:', error);
+        res.status(500).json({ error: 'An error occurred while fetching supplier due data' });
+    }
+};
+
+
+export const medicineExpiry = async (req, res) => {
+    try {
+        const { fromDate, toDate } = req.query;
+
+        // Convert `fromDate` and `toDate` to "MM/YY" format
+        const formatMMYY = (date) => {
+            const month = String(date.getMonth() + 1).padStart(2, '0'); // Month in "MM" format
+            const year = String(date.getFullYear()).slice(-2); // Year in "YY" format
+            return `${month}/${year}`;
+        };
+
+        const start = formatMMYY(new Date(fromDate));
+        const end = formatMMYY(new Date(toDate));
+
+        // Find medicines with expiry within the "MM/YY" range
+        const expiringMedicines = await MedicineAvailable.find({
+            expiry: { $gte: start, $lte: end },
+        });
+
+        res.json(expiringMedicines);
+    } catch (error) {
+        console.error('Error fetching expiry data:', error);
+        res.status(500).json({ error: 'An error occurred while fetching expiry data' });
+    }
+};
+
+// Route to get stock PTR values
+export const stockPTRValue = async (req, res) => {
+    try {
+        const stockData = await MedicineAvailable.find({}, 'itemName batch ptr qty');
+        
+        // Calculate PTR value for each item
+        const ptrValues = stockData.map((item) => ({
+            itemName: item.itemName,
+            batch: item.batch,
+            purchasePrice: item.ptr,
+            quantity: item.qty,
+            ptrValue: item.ptr * item.qty,
+        }));
+        
+        res.json(ptrValues);
+    } catch (error) {
+        console.error('Error fetching stock PTR values:', error);
+        res.status(500).json({ error: 'An error occurred while fetching stock PTR values' });
+    }
+};
+
+// Route to get Sales GST Statement with date filtering
+export const salesGSTStatement = async (req, res) => {
+    try {
+        const { fromDate, toDate } = req.query;
+
+        // Convert fromDate and toDate into proper Date objects
+        const startDate = new Date(fromDate);
+        const endDate = new Date(toDate);
+        endDate.setHours(23, 59, 59, 999);  // Set to end of the day
+
+        // Fetch data from PharmaBillDetail and populate PharmaBill details
+        const salesData = await pharmaBillDetail.find()
+            .populate({
+                path: 'bill', // Reference to the PharmaBill model
+                select: 'billDate customerName', // Select the billDate and customerName fields from the PharmaBill
+                match: { billDate: { $gte: startDate, $lte: endDate } } // Filter based on billDate within the provided range
+            })
+            .exec();
+
+        // Filter out the records where the bill was not populated due to the date filter
+        const gstStatement = salesData
+            .filter(sale => sale.bill)  // Ensure that only sales with valid `bill` data are included
+            .map((sale, index) => {
+                // Calculate GST based on MRP and GST percentage
+                const totalGST = sale.mrp * (sale.gst / 100); // MRP * GST %
+                const totalAmount = sale.mrp + totalGST;  // MRP + GST to get the total amount
+
+                let gst5 = 0, gst12 = 0, gst18 = 0, exempted = 0;
+
+                // Classify the GST according to its rate (5%, 12%, or 18%)
+                if (sale.gst === 5) {
+                    gst5 = totalGST;
+                } else if (sale.gst === 12) {
+                    gst12 = totalGST;
+                } else if (sale.gst === 18) {
+                    gst18 = totalGST;
+                } else {
+                    exempted = sale.mrp; // If there is no GST, it's exempted
+                }
+
+                return {
+                    sno: index + 1,
+                    billDate: sale.bill.billDate,  // Accessing populated billDate
+                    customerName: sale.bill.customerName,  // Accessing populated customerName
+                    billNo: sale.billNo,
+                    withoutGST: sale.mrp,
+                    totalGST: totalGST,
+                    totalAmount: totalAmount,
+                    gst5: gst5,
+                    gst12: gst12,
+                    gst18: gst18,
+                    exempted: exempted
+                };
+            });
+
+        res.json(gstStatement);
+    } catch (error) {
+        console.error('Error fetching Sales GST statement:', error);
+        res.status(500).json({ error: 'An error occurred while fetching Sales GST statement' });
+    }
+};
+
+
+export const purchaseGSTStatement = async (req, res) => {
+    try {
+        const { fromDate, toDate } = req.query;
+
+        // Convert fromDate and toDate into proper Date objects
+        const startDate = new Date(fromDate);
+        const endDate = new Date(toDate);
+        endDate.setHours(23, 59, 59, 999);  // Set to end of the day
+
+        // Fetch data from PharmaBillDetail and populate PharmaBill details for purchase type
+        const purchaseData = await PurchaseOrderDetail.find()
+            .populate({
+                path: 'purchaseOrder',
+                select: 'billDate billNo', 
+                match: { 
+                    billDate: { $gte: startDate, $lte: endDate }, // Filter based on billDate within the provided range
+                }
+            })
+            .exec();
+
+        // Filter out the records where the bill was not populated due to the date filter or type mismatch
+        const gstStatement = purchaseData
+            .filter(purchase => purchase.purchaseOrder)  
+            .map((purchase, index) => {
+                // Calculate GST based on MRP and GST percentage
+                const totalGST = purchase.mrp * (purchase.gst / 100); // MRP * GST %
+                const totalAmount = purchase.mrp + totalGST;  // MRP + GST to get the total amount
+
+                let gst5 = 0, gst12 = 0, gst18 = 0, exempted = 0;
+
+                // Classify the GST according to its rate (5%, 12%, or 18%)
+                if (purchase.gst === 5) {
+                    gst5 = totalGST;
+                } else if (purchase.gst === 12) {
+                    gst12 = totalGST;
+                } else if (purchase.gst === 18) {
+                    gst18 = totalGST;
+                } else {
+                    exempted = purchase.mrp; // If there is no GST, it's exempted
+                }
+
+                return {
+                    sno: index + 1,
+                    billDate: purchase.purchaseOrder.billDate, 
+                    supplierName: purchase.purchaseOrder.supplierName,  
+                    billNo: purchase.purchaseOrder.billNo,
+                    withoutGST: purchase.mrp,
+                    totalGST: totalGST,
+                    totalAmount: totalAmount,
+                    gst5: gst5,
+                    gst12: gst12,
+                    gst18: gst18,
+                    exempted: exempted
+                };
+            });
+
+        res.json(gstStatement);
+    } catch (error) {
+        console.error('Error fetching Purchase GST statement:', error);
+        res.status(500).json({ error: 'An error occurred while fetching Purchase GST statement' });
+    }
+};
+
+
+
 export const downloadDailyCollection = async (req, res) => {
     const date = req.params.date;
 
