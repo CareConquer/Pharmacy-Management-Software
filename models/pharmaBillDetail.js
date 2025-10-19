@@ -11,6 +11,8 @@ const billDetailSchema = new mongoose.Schema({
   qty: { type: Number, required: true },
   gst: { type: Number, required: true },
   mrp: { type: Number, required: true },
+   hsn: {type: String, required: true},
+  company: {type: String, required: true},
   discount: { type: Number, default: 0 }, // Default discount to 0
   totalAmount: { type: Number, required: true },
   billYear: { type: String, required: true },
@@ -20,3 +22,4 @@ const billDetailSchema = new mongoose.Schema({
 const pharmaBillDetail = mongoose.model('pharmaBillDetail', billDetailSchema);
 
 export default pharmaBillDetail;
+
