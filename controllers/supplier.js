@@ -14,6 +14,7 @@ import DuePharmaBillCleared from "../models/DuePharmaBillCleared.js";
 import OpeningClosingStock from "../models/OpeningClosingStock.js";
 import MedicineCompany from "../models/medicineCompanyModel.js";
 import MedicineType from "../models/medicineTypeModel.js";
+import mongoose from "mongoose";
 import HTMLToPDF from './htmlPf.js';
 
 
@@ -893,8 +894,113 @@ export const getAvailable = async (req, res) => {
 //   }
 // };
 
+// export const saveBill = async (req, res) => {
+//   try {
+//     const {
+//       billDate,
+//       customerName,
+//       customerNumber,
+//       billingFor,
+//       selectedDoctor,
+//       totalAmount,
+//       payingAmount,
+//       dueAmount,
+//       discountAmount,
+//       refundAmount,
+//       paymentType,
+//       items, // Array of items from request body
+//     } = req.body;
+
+//     // Get the financial year based on the bill date
+//     const billYear = getFinancialYear(new Date(billDate)).label;
+
+//     // Fetch the latest bill number and increment it by 1
+//     const latestBill = await pharmaBill.findOne().sort({ billNo: -1 }).exec();
+//     const newBillNo = latestBill ? latestBill.billNo + 1 : 1;
+
+//     // Create and save a new bill
+//     const bill = new pharmaBill({
+//       billNo: newBillNo,
+//       billDate,
+//       customerName,
+//       customerNumber,
+//       billingFor,
+//       selectedDoctor,
+//       totalAmount,
+//       payingAmount,
+//       discountAmount,
+//       dueAmount,
+//       refundAmount,
+//       billYear,
+//       paymentType,
+//     });
+
+//     await bill.save();
+
+//     // Create and save all bill details
+//     const billDetails = items.map(item => ({
+//       bill: bill._id,
+//       medicineId: item.itemId,
+//       billNo: newBillNo,
+//       medicineName: item.medicineName,
+//       batchNo: item.batchNo,
+//       expiryDate: item.expiryDate,
+//       qty: item.qty,
+//       gst: item.gst,
+//       mrp: item.mrp,
+//       discount: item.discount,
+//       totalAmount: item.totalAmount,
+//       billYear
+//     }));
+
+//     await pharmaBillDetail.insertMany(billDetails);
+
+//     // Update MedicineAvailable and OpeningClosingStock quantities
+//     for (const item of items) {
+//       // 🔹 Reduce from MedicineAvailable
+//       const medicine = await MedicineAvailable.findOne({
+//         itemName: item.medicineName,
+//         batch: item.batchNo,
+//       });
+
+//       if (medicine) {
+//         medicine.qty -= item.qty;
+//         await medicine.save();
+//       } else {
+//         throw new Error(`Medicine ${item.medicineName} with batch ${item.batchNo} not found`);
+//       }
+
+//       // 🔹 Reduce from OpeningClosingStock as well
+//       const stock = await OpeningClosingStock.findOne({
+//         medicineName: item.medicineName,
+//         batchNo: item.batchNo,
+//       });
+
+//       if (stock) {
+//         stock.currentStock -= item.qty;
+
+//         // Optional: prevent negative stock
+//         if (stock.currentStock < 0) stock.currentStock = 0;
+
+//         await stock.save();
+//       } else {
+//         console.warn(`OpeningClosingStock not found for ${item.medicineName}, batch ${item.batchNo}`);
+//       }
+//     }
+
+//     res.status(201).json({ bill, billDetails, billId: bill._id });
+//   } catch (error) {
+//     console.error('Error saving bill:', error);
+//     res.status(500).json({ message: 'Failed to save bill' });
+//   }
+// };
+
 export const saveBill = async (req, res) => {
+  const session = await mongoose.startSession();
+
   try {
+    session.startTransaction();
+
     const {
       billDate,
       customerName,
@@ -907,17 +1013,16 @@ export const saveBill = async (req, res) => {
       discountAmount,
       refundAmount,
       paymentType,
-      items, // Array of items from request body
+      items,
     } = req.body;
 
-    // Get the financial year based on the bill date
     const billYear = getFinancialYear(new Date(billDate)).label;
 
-    // Fetch the latest bill number and increment it by 1
-    const latestBill = await pharmaBill.findOne().sort({ billNo: -1 }).exec();
+    // Fetch latest bill number
+    const latestBill = await pharmaBill.findOne().sort({ billNo: -1 }).session(session);
     const newBillNo = latestBill ? latestBill.billNo + 1 : 1;
 
-    // Create and save a new bill
+    // Save main bill
     const bill = new pharmaBill({
       billNo: newBillNo,
       billDate,
@@ -933,15 +1038,16 @@ export const saveBill = async (req, res) => {
       billYear,
       paymentType,
     });
+    await bill.save({ session });
 
-    await bill.save();
-
-    // Create and save all bill details
+    // Prepare bill details
     const billDetails = items.map(item => ({
       bill: bill._id,
       medicineId: item.itemId,
       billNo: newBillNo,
       medicineName: item.medicineName,
+      hsn: item.hsn,
+      company: item.company,
       batchNo: item.batchNo,
       expiryDate: item.expiryDate,
       qty: item.qty,
@@ -949,48 +1055,48 @@ export const saveBill = async (req, res) => {
       mrp: item.mrp,
       discount: item.discount,
       totalAmount: item.totalAmount,
-      billYear
+      billYear,
     }));
 
-    await pharmaBillDetail.insertMany(billDetails);
+    await pharmaBillDetail.insertMany(billDetails, { session });
 
-    // Update MedicineAvailable and OpeningClosingStock quantities
+    // Update stock quantities
     for (const item of items) {
-      // 🔹 Reduce from MedicineAvailable
+      // MedicineAvailable
       const medicine = await MedicineAvailable.findOne({
         itemName: item.medicineName,
         batch: item.batchNo,
-      });
+      }).session(session);
 
-      if (medicine) {
-        medicine.qty -= item.qty;
-        await medicine.save();
-      } else {
-        throw new Error(`Medicine ${item.medicineName} with batch ${item.batchNo} not found`);
-      }
+      if (!medicine) throw new Error(`Medicine ${item.medicineName} batch ${item.batchNo} not found`);
+      medicine.qty -= item.qty;
+      if (medicine.qty < 0) medicine.qty = 0;
+      await medicine.save({ session });
 
-      // 🔹 Reduce from OpeningClosingStock as well
+      // OpeningClosingStock
       const stock = await OpeningClosingStock.findOne({
         medicineName: item.medicineName,
         batchNo: item.batchNo,
-      });
+      }).session(session);
 
       if (stock) {
-        stock.currentStock -= item.qty;
-
-        // Optional: prevent negative stock
-        if (stock.currentStock < 0) stock.currentStock = 0;
-
-        await stock.save();
+        stock.currentStock = Math.max(0, stock.currentStock - item.qty);
+        await stock.save({ session });
       } else {
         console.warn(`OpeningClosingStock not found for ${item.medicineName}, batch ${item.batchNo}`);
       }
     }
 
+    await session.commitTransaction();
+    session.endSession();
+
     res.status(201).json({ bill, billDetails, billId: bill._id });
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
     console.error('Error saving bill:', error);
-    res.status(500).json({ message: 'Failed to save bill' });
+    res.status(500).json({ message: 'Failed to save bill', error: error.message });
   }
 };
 
@@ -2112,5 +2218,6 @@ const generateBillHTML = (data) => {
 
   return billDetailsHTML;
 };
+
 
 
