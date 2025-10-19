@@ -789,6 +789,8 @@ export const getAvailable = async (req, res) => {
         mrp: med.mrp,
         gst: med.gst,
         qty: med.qty,
+         hsn: med.hsn,
+        company: med.company,
         discount: med.discount || 0,
         itemId: med._id
       });
@@ -2110,4 +2112,5 @@ const generateBillHTML = (data) => {
 
   return billDetailsHTML;
 };
+
 
